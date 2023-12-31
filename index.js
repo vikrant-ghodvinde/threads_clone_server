@@ -7,13 +7,16 @@ const cors = require("cors");
 const connection = require("./connection/db.js");
 const { createUser } = require("./controllers/user.js");
 const userRoutes = require("./routes/user.js");
+const { createPost } = require("./controllers/post.js");
+const postRoutes = require("./routes/post.js");
+const verifyToken = require("./middleware/auth.js");
 
 const app = express();
 dotenv.config();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use('/uploads', express.static('uploads'));
+app.use("/uploads", express.static("uploads"));
 app.use(bodyParser.json({ limit: "30mb", extended: true }));
 app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 const PORT = process.env.PORT || 6000;
@@ -41,6 +44,14 @@ const postUpload = multer({ storage: postStorage });
 
 app.post("/user/create", userUpload.single("userImage"), createUser);
 app.use("/user", userRoutes);
+
+app.post(
+  "/post/create",
+  postUpload.single("feedImage"),
+  verifyToken,
+  createPost
+);
+app.use("/post", verifyToken, postRoutes);
 
 connection.connect((error) => {
   if (error) {

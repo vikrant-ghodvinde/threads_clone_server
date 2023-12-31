@@ -43,8 +43,8 @@ const userLogin = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const sql = "SELECT * FROM users WHERE email = ?";
-    connection.query(sql, [email], async (error, result) => {
+    const sql = "SELECT * FROM users WHERE email = ? OR userName = ?";
+    connection.query(sql, [email, email], async (error, result) => {
       if (error) {
         return res.status(500).json({ error: error.message });
       } else if (result.length === 0) {
