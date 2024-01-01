@@ -48,7 +48,7 @@ const getAllPost = (req, res) => {
         return res.status(500).json({ error: error.message });
       }
       const posts = result;
-      console.log(posts)
+      console.log(posts);
       return res.status(200).json({ posts });
     });
   } catch (error) {
@@ -56,4 +56,67 @@ const getAllPost = (req, res) => {
   }
 };
 
-module.exports = { createPost, getAllPost };
+// LIKE POST
+const likePost = (req, res) => {
+  const { postId } = req.params;
+  const { userId } = req.body;
+  try {
+    connection.query(
+      "SELECT * FROM post_likes WHERE postId = ? AND userId = ?",
+      [postId, userId],
+      (error, results) => {
+        if (error) {
+          console.error("Error checking like:", error);
+          return res.status(500).json({ error: "Error checking like" });
+        }
+
+        if (results.length > 0) {
+          // User has already liked the post, unlike it
+          connection.query(
+            "DELETE FROM post_likes WHERE postId = ? AND userId = ?",
+            [postId, userId],
+            (error) => {
+              if (error) {
+                console.error("Error unliking post:", error);
+                return res.status(500).json({ error: "Error unliking post" });
+              }
+              updateLikesCount(postId, res);
+            }
+          );
+        } else {
+          // User has not liked the post, like it
+          connection.query(
+            "INSERT INTO post_likes (postId, userId) VALUES (?, ?)",
+            [postId, userId],
+            (error) => {
+              if (error) {
+                console.error("Error liking post:", error);
+                return res.status(500).json({ error: "Error liking post" });
+              }
+              updateLikesCount(postId, res);
+            }
+          );
+        }
+        const updateLikesCount = (postId, res) => {
+          connection.query(
+            "UPDATE posts SET likes = (SELECT COUNT(*) FROM post_likes WHERE postId = ?) WHERE id = ?",
+            [postId, postId],
+            (error) => {
+              if (error) {
+                console.error("Error updating likes count:", error);
+                return res
+                  .status(500)
+                  .json({ error: "Error updating likes count" });
+              }
+              res.json({ message: "Post liked/unliked successfully" });
+            }
+          );
+        };
+      }
+    );
+  } catch (error) {
+    return res.status(500).json({ error: error });
+  }
+};
+
+module.exports = { createPost, getAllPost, likePost };
