@@ -28,9 +28,16 @@ const createPost = (req, res) => {
           if (error) {
             return res.status(500).json({ error: error.message });
           }
-          return res.status(200).json({
-            message: `Post created successfully ${result.insertId}`,
-          });
+          connection.query(
+            "SELECT * FROM posts ORDER BY createdAt DESC",
+            (error, result) => {
+              if (error) {
+                return res.status(500).json({ error: error.message });
+              }
+              const posts = result;
+              return res.status(200).json({ posts });
+            }
+          );
         });
       }
     });
@@ -48,7 +55,6 @@ const getAllPost = (req, res) => {
         return res.status(500).json({ error: error.message });
       }
       const posts = result;
-      console.log(posts);
       return res.status(200).json({ posts });
     });
   } catch (error) {
@@ -56,86 +62,62 @@ const getAllPost = (req, res) => {
   }
 };
 
-// LIKE POST
 const likePost = (req, res) => {
   const { postId } = req.params;
   const { userId } = req.body;
-  try {
-    connection.query(
-      "SELECT * FROM post_likes WHERE postId = ? AND userId = ?",
-      [postId, userId],
-      (error, results) => {
-        if (error) {
-          console.error("Error checking like:", error);
-          return res.status(500).json({ error: "Error checking like" });
-        }
 
-        if (results.length > 0) {
-          // User has already liked the post, unlike it
+  connection.query(
+    "SELECT * FROM posts WHERE id = ?",
+    [postId],
+    (error, result) => {
+      if (error) {
+        console.error("Error retrieving post:", error);
+        return res.status(500).json({ error: "Error retrieving post" });
+      } else if (result.length === 0) {
+        return res.status(404).json({ error: "Post not found" });
+      } else {
+        const post = result[0];
+        const likes = post.likes ? JSON.parse(post.likes) : [];
+        const isLiked = likes.findIndex((like) => like.userId === userId);
+        if (isLiked !== -1) {
+          likes.splice(isLiked, 1);
+
           connection.query(
-            "DELETE FROM post_likes WHERE postId = ? AND userId = ?",
-            [postId, userId],
+            "UPDATE posts SET likes = ? WHERE id = ?",
+            [JSON.stringify(likes), postId],
             (error) => {
               if (error) {
-                console.error("Error unliking post:", error);
-                return res.status(500).json({ error: "Error unliking post" });
+                console.error("Error removing like:", error);
+                return res.status(500).json({ error: "Error removing like" });
               }
-              updateLikesCount(postId, res);
             }
           );
         } else {
-          // User has not liked the post, like it
+          likes.push({ userId });
           connection.query(
-            "INSERT INTO post_likes (postId, userId) VALUES (?, ?)",
-            [postId, userId],
+            "UPDATE posts SET likes = ? WHERE id = ?",
+            [JSON.stringify(likes), postId],
             (error) => {
               if (error) {
-                console.error("Error liking post:", error);
-                return res.status(500).json({ error: "Error liking post" });
+                console.error("Error updating likes:", error);
+                return res.status(500).json({ error: "Error updating likes" });
               }
-              updateLikesCount(postId, res);
             }
           );
         }
-        const updateLikesCount = (postId, res) => {
-          connection.query(
-            "UPDATE posts SET likes = (SELECT COUNT(*) FROM post_likes WHERE postId = ?) WHERE id = ?",
-            [postId, postId],
-            (error) => {
-              if (error) {
-                console.error("Error updating likes count:", error);
-                return res
-                  .status(500)
-                  .json({ error: "Error updating likes count" });
-              } else {
-                connection.query(
-                  "SELECT * FROM posts ORDER BY createdAt DESC",
-                  (error, result) => {
-                    if (error) {
-                      return res.status(500).json({ error: error.message });
-                    }
-                    const posts = result;
-                    connection.query(
-                      "SELECT * FROM post_likes",
-                      (error, likes) => {
-                        res.json({
-                          message: "Post liked/unliked successfully",
-                          posts,
-                          likes,
-                        });
-                      }
-                    );
-                  }
-                );
-              }
+        connection.query(
+          "SELECT * FROM posts ORDER BY createdAt DESC",
+          (error, result) => {
+            if (error) {
+              return res.status(500).json({ error: error.message });
             }
-          );
-        };
+            const posts = result;
+            return res.status(200).json({ posts });
+          }
+        );
       }
-    );
-  } catch (error) {
-    return res.status(500).json({ error: error });
-  }
+    }
+  );
 };
 
 module.exports = { createPost, getAllPost, likePost };
