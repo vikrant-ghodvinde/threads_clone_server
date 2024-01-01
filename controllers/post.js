@@ -107,8 +107,27 @@ const likePost = (req, res) => {
                 return res
                   .status(500)
                   .json({ error: "Error updating likes count" });
+              } else {
+                connection.query(
+                  "SELECT * FROM posts ORDER BY createdAt DESC",
+                  (error, result) => {
+                    if (error) {
+                      return res.status(500).json({ error: error.message });
+                    }
+                    const posts = result;
+                    connection.query(
+                      "SELECT * FROM post_likes",
+                      (error, likes) => {
+                        res.json({
+                          message: "Post liked/unliked successfully",
+                          posts,
+                          likes,
+                        });
+                      }
+                    );
+                  }
+                );
               }
-              res.json({ message: "Post liked/unliked successfully" });
             }
           );
         };
